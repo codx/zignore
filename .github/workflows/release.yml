@@ -103,8 +103,7 @@ jobs:
         working-directory: dist
         run: |
           cosign sign-blob --yes \
-            --output-signature SHA256SUMS.sig \
-            --output-certificate SHA256SUMS.pem \
+            --bundle SHA256SUMS.sigstore.json \
             SHA256SUMS
 
       - name: Attest build provenance
@@ -118,7 +117,6 @@ jobs:
           files: |
             dist/zignore-*.tar.gz
             dist/SHA256SUMS
-            dist/SHA256SUMS.sig
-            dist/SHA256SUMS.pem
+            dist/SHA256SUMS.sigstore.json
           generate_release_notes: true
           fail_on_unmatched_files: true
