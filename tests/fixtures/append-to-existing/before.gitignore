@@ -1,0 +1,4 @@
+# Python
+*.pyc
+
+node_modules/

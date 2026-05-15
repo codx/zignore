@@ -1,0 +1,2 @@
+# I want the seed file committed even though dist/ would normally be ignored.
+!dist/keep.txt

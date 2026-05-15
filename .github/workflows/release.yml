@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+# Default deny — each job opts into the minimum it needs.
+permissions: {}
+
+jobs:
+  build:
+    # Skip on forks/mirrors — release artifacts only come from the canonical repo.
+    if: github.repository_owner == 'codx'
+    name: Build ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-linux-musl
+          - aarch64-linux-musl
+          - x86_64-macos
+          - aarch64-macos
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0  # need full history for SOURCE_DATE_EPOCH
+
+      - uses: mlugg/setup-zig@53fc45b17fe98b52f92ee5ea08ff48a85a3e7eb7 # v1
+        with:
+          version: 0.16.0
+
+      - name: Read version from build.zig.zon
+        id: ver
+        run: |
+          v=$(sed -nE 's/.*\.version = "([^"]+)".*/\1/p' build.zig.zon)
+          test -n "$v" || { echo "could not parse version from build.zig.zon"; exit 1; }
+          tag="${GITHUB_REF_NAME#v}"
+          test "$v" = "$tag" || { echo "build.zig.zon version ($v) != tag ($tag)"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Cross-compile
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euxo pipefail
+          export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
+          zig build -Dtarget="$TARGET" --release=safe -Dstrip=true
+
+      - name: Package
+        id: pkg
+        env:
+          TARGET: ${{ matrix.target }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euxo pipefail
+          export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
+          asset="zignore-${VERSION}-${TARGET}.tar.gz"
+          tar --sort=name --owner=0 --group=0 --numeric-owner \
+              --mtime="@${SOURCE_DATE_EPOCH}" --format=ustar \
+              -cf - -C zig-out/bin zignore \
+            | gzip -n -9 > "${asset}"
+          sha256sum "$asset"
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ steps.pkg.outputs.asset }}
+          path: ${{ steps.pkg.outputs.asset }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    if: github.repository_owner == 'codx'
+    name: Sign, attest, upload
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write       # upload to the GH Release
+      id-token: write       # cosign keyless OIDC + attestations
+      attestations: write   # store build-provenance attestations
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS
+        working-directory: dist
+        run: |
+          set -euxo pipefail
+          ls -la
+          sha256sum zignore-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+
+      - name: Sign SHA256SUMS (keyless OIDC)
+        working-directory: dist
+        run: |
+          cosign sign-blob --yes \
+            --output-signature SHA256SUMS.sig \
+            --output-certificate SHA256SUMS.pem \
+            SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v1
+        with:
+          subject-path: 'dist/zignore-*.tar.gz'
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: |
+            dist/zignore-*.tar.gz
+            dist/SHA256SUMS
+            dist/SHA256SUMS.sig
+            dist/SHA256SUMS.pem
+          generate_release_notes: true
+          fail_on_unmatched_files: true

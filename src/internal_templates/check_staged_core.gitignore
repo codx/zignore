@@ -1,0 +1,9 @@
+# Conservative polluter baseline for check-staged
+# These patterns have very low false-positive rates.
+
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+desktop.ini

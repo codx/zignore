@@ -1,0 +1,6 @@
+# Python
+*.pyc
+
+node_modules/
+__pycache__/
+*.pyo

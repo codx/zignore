@@ -1,0 +1,3 @@
+# Python
+.pixi/*
+!.pixi/config.toml
