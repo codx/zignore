@@ -60,9 +60,9 @@ zignore completion zsh  > ~/.zsh/completions/_zignore
 
 Arguments starting with `@` expand to a named bundle of templates:
 
-| Group  | Members                                                                                                                                                  |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@dev` | popular editors (VS Code, JetBrains, Vim, Emacs, Sublime, Zed, Cursor), OS files (macOS, Linux, Windows), and common dev cruft (Archives, Backup, Tags). |
+| Group  | Members                                                                                                  |
+| ------ | -------------------------------------------------------------------------------------------------------- |
+| `@dev` | editors (VS Code, Vim), OS files (macOS, Linux, Windows), and common dev cruft (Archives, Backup, Tags). |
 
 ## Picker
 
@@ -103,7 +103,8 @@ exec zignore check-staged
 
 ```sh
 nix develop            # dev shell with zig, zls, git
-make test build        # unit + fixture tests
+make test              # unit + fixture tests
+make help              # list all targets
 make update-subtrees   # pull the latest github/gitignore
 ```
 
