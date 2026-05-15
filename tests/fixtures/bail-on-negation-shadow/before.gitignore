@@ -1,0 +1,2 @@
+# I want build.log committed even though logs are usually ignored.
+!build.log

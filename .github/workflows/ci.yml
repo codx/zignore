@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  test:
+    if: github.repository_owner == 'codx'
+    name: Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: mlugg/setup-zig@53fc45b17fe98b52f92ee5ea08ff48a85a3e7eb7 # v1
+        with:
+          version: 0.16.0
+      - run: zig build test
+
+  cross-compile:
+    if: github.repository_owner == 'codx'
+    name: Cross-compile ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-linux-musl
+          - aarch64-linux-musl
+          - x86_64-macos
+          - aarch64-macos
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: mlugg/setup-zig@53fc45b17fe98b52f92ee5ea08ff48a85a3e7eb7 # v1
+        with:
+          version: 0.16.0
+      - run: zig build -Dtarget=${{ matrix.target }} --release=safe -Dstrip=true
+
+  repro-check:
+    if: github.repository_owner == 'codx'
+    name: Reproducible build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0  # need history for SOURCE_DATE_EPOCH
+      - uses: mlugg/setup-zig@53fc45b17fe98b52f92ee5ea08ff48a85a3e7eb7 # v1
+        with:
+          version: 0.16.0
+      - name: Build x86_64-linux-musl twice and diff sha256
+        run: |
+          set -euxo pipefail
+          export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
+          build_once() {
+            rm -rf zig-out .zig-cache
+            zig build -Dtarget=x86_64-linux-musl --release=safe -Dstrip=true
+            tar --sort=name --owner=0 --group=0 --numeric-owner \
+                --mtime="@${SOURCE_DATE_EPOCH}" --format=ustar \
+                -cf - -C zig-out/bin zignore \
+              | gzip -n -9 > "$1"
+            sha256sum "$1"
+          }
+          build_once one.tar.gz
+          build_once two.tar.gz
+          a=$(sha256sum one.tar.gz | awk '{print $1}')
+          b=$(sha256sum two.tar.gz | awk '{print $1}')
+          if [ "$a" != "$b" ]; then
+            echo "::error::reproducible build check failed: $a != $b"
+            exit 1
+          fi
+
+  drift-check:
+    if: github.repository_owner == 'codx'
+    name: Version drift
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Verify version manifests are consistent
+        run: |
+          set -euo pipefail
+          zon=$(sed -nE 's/.*\.version = "([^"]+)".*/\1/p' build.zig.zon)
+          test -n "$zon" || { echo "could not parse version from build.zig.zon"; exit 1; }
+          echo "build.zig.zon: $zon"
+          # flake.nix must NOT hard-code the version — it should read from
+          # build.zig.zon. This guards against accidental re-hardcoding.
+          if grep -E '^[[:space:]]*version[[:space:]]*=[[:space:]]*"[0-9]' flake.nix; then
+            echo "::error::flake.nix has a hard-coded version — read it from build.zig.zon instead"
+            exit 1
+          fi
+          # Phase 2 will add dist/npm/package.json + dist/pypi/pyproject.toml;
+          # the checks below activate automatically when those files land.
+          if [ -f dist/npm/package.json ]; then
+            npm=$(sed -nE 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' dist/npm/package.json | head -1)
+            test "$npm" = "$zon" || { echo "::error::dist/npm/package.json version ($npm) != build.zig.zon ($zon)"; exit 1; }
+          fi
+          if [ -f dist/pypi/pyproject.toml ]; then
+            pypi=$(sed -nE 's/^version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' dist/pypi/pyproject.toml | head -1)
+            test "$pypi" = "$zon" || { echo "::error::dist/pypi/pyproject.toml version ($pypi) != build.zig.zon ($zon)"; exit 1; }
+          fi
+
+  nix-check:
+    if: github.repository_owner == 'codx'
+    name: Nix flake check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: DeterminateSystems/nix-installer-action@da36cb69b1c3247ad7a1f931ebfd954a1105ef14 # v14
+      - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
+      - run: nix flake check --no-build --print-build-logs
