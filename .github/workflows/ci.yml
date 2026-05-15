@@ -17,10 +17,9 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: mlugg/setup-zig@53fc45b17fe98b52f92ee5ea08ff48a85a3e7eb7 # v1
-        with:
-          version: 0.16.0
-      - run: zig build test
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - run: nix shell --inputs-from . nixpkgs#zig --command zig build test
 
   cross-compile:
     if: github.repository_owner == 'codx'
@@ -38,10 +37,9 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: mlugg/setup-zig@53fc45b17fe98b52f92ee5ea08ff48a85a3e7eb7 # v1
-        with:
-          version: 0.16.0
-      - run: zig build -Dtarget=${{ matrix.target }} --release=safe -Dstrip=true
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - run: nix shell --inputs-from . nixpkgs#zig --command zig build -Dtarget=${{ matrix.target }} --release=safe -Dstrip=true
 
   repro-check:
     if: github.repository_owner == 'codx'
@@ -53,16 +51,16 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0  # need history for SOURCE_DATE_EPOCH
-      - uses: mlugg/setup-zig@53fc45b17fe98b52f92ee5ea08ff48a85a3e7eb7 # v1
-        with:
-          version: 0.16.0
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - name: Build x86_64-linux-musl twice and diff sha256
         run: |
           set -euxo pipefail
           export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
           build_once() {
             rm -rf zig-out .zig-cache
-            zig build -Dtarget=x86_64-linux-musl --release=safe -Dstrip=true
+            nix shell --inputs-from . nixpkgs#zig --command \
+              zig build -Dtarget=x86_64-linux-musl --release=safe -Dstrip=true
             tar --sort=name --owner=0 --group=0 --numeric-owner \
                 --mtime="@${SOURCE_DATE_EPOCH}" --format=ustar \
                 -cf - -C zig-out/bin zignore \
@@ -117,6 +115,6 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: DeterminateSystems/nix-installer-action@da36cb69b1c3247ad7a1f931ebfd954a1105ef14 # v14
-      - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - run: nix flake check --no-build --print-build-logs
