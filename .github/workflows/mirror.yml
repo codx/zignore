@@ -1,0 +1,23 @@
+name: Mirror to Codeberg
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+permissions: {}
+
+jobs:
+  mirror:
+    if: github.repository_owner == 'codx'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: run-action/mirror-repo@v1
+        with:
+          target_url: "git@codeberg.org:codx/zignore.git"
+          ssh_key: ${{ secrets.SSH_KEY }}
