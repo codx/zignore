@@ -3,10 +3,10 @@
 Quickly update `.gitignore`
 
 ```sh
-zignore add zig @dev           # append Zig + editor/OS rules to .gitignore
+zignore add github/Zig @dev    # append Zig + editor/OS rules to .gitignore
 zignore add                    # pick templates interactively (tv/fzf)
-zignore add py                 # 'py' → Python (unique prefix)
-zignore add --diff python      # preview the change instead of writing
+zignore add py                 # 'py' → github/Python (unique prefix)
+zignore add --diff github/python # preview the change instead of writing
 ```
 
 The template collection is embedded in the binary at build time. `add`
@@ -40,13 +40,13 @@ zignore completion zsh  > ~/.zsh/completions/_zignore
 
 ## Commands
 
-| Command                | What it does                                                                                                                                                                                                                                          |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `add [name\|@group]…`  | Append template patterns to `.gitignore`. With no positional or an ambiguous prefix, opens a picker (`tv` or `fzf`) seeded with templates autodetected for the current project. A unique prefix is resolved automatically (e.g. `add py` → `Python`). |
-| `list`                 | List available templates.                                                                                                                                                                                                                             |
-| `show <name\|@group>…` | Print a template to stdout (raw).                                                                                                                                                                                                                     |
-| `check-staged`         | Exit 1 if any staged path matches a high-confidence bundled template (core polluters like Node/Python, and autodetected languages) — use as a pre-commit hook.                                                                                        |
-| `completion <shell>`   | Print the bundled completion script for `bash`, `zsh`, or `fish`.                                                                                                                                                                                     |
+| Command                | What it does                                                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `add [name\|@group]…`  | Append template patterns to `.gitignore`. Opens a picker if available (`tv` or `fzf`).                                 |
+| `list`                 | List available templates.                                                                                              |
+| `show <name\|@group>…` | Print a template to stdout (raw).                                                                                      |
+| `check-staged`         | Exit 1 if any staged path matches a high-confidence bundled template, intended to be used as a global pre-commit hook. |
+| `completion <shell>`   | Print the bundled completion script for `bash`, `zsh`, or `fish`.                                                      |
 
 ### `add` flags
 
@@ -55,14 +55,6 @@ zignore completion zsh  > ~/.zsh/completions/_zignore
   of `.gitignore`. E.g. `--file=.dockerignore`.
 - `--header=none` — skip the `# <Name>` section header when creating a
   new section.
-
-## Groups
-
-Arguments starting with `@` expand to a named bundle of templates:
-
-| Group  | Members                                                                                                  |
-| ------ | -------------------------------------------------------------------------------------------------------- |
-| `@dev` | editors (VS Code, Vim), OS files (macOS, Linux, Windows), and common dev cruft (Archives, Backup, Tags). |
 
 ## Picker
 

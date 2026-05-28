@@ -10,7 +10,7 @@
 # Requires: zig 0.16.x, git, curl, GNU tar (gtar on macOS via `brew install
 # gnu-tar`), and either sha256sum (linux) or shasum (macOS).
 
-set -eu
+set -eu -o pipefail
 
 OWNER=codx
 REPO=zignore

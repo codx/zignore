@@ -37,7 +37,7 @@ const usage_text =
     \\  add [name|@group]…    append template patterns to .gitignore;
     \\                        with no name or an ambiguous prefix, picks
     \\                        interactively (tv/fzf)
-    \\  list                  list available templates
+    \\  list                  list available templates (`github/...`, `internal/...`)
     \\  show <name|@group>…   print a template to stdout
     \\  check-staged          exit 1 if staged paths match a bundled template
     \\  completion <shell>    print shell completions (bash | zsh | fish)

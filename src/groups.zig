@@ -19,19 +19,21 @@ pub const Group = struct {
 pub const all = [_]Group{
     .{
         .name = "dev",
-        .description = "popular editors, OS files, and common dev cruft",
+        .description = "defaults for modern dev",
         .members = &.{
-            // Editors
+            "Bun",
+            "Go",
+            "Node",
+            "Python",
+            "Rust",
+            "Zig",
+            // Editor
             "VisualStudioCode",
             "Vim",
             // OS
             "macOS",
             "Linux",
             "Windows",
-            // Cross-cutting dev cruft
-            "Archives",
-            "Backup",
-            "Tags",
         },
     },
 };

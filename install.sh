@@ -66,7 +66,7 @@ test "$actual" = "$expected" \
     || err "checksum mismatch for ${asset} (expected ${expected}, got ${actual})"
 
 # ---- Install ---------------------------------------------------------------
-install_dir="${ZIGNORE_INSTALL_DIR:-$HOME/.local/bin}"
+install_dir="${ZIGNORE_INSTALL_DIR:-"$HOME"/.local/bin}"
 mkdir -p "$install_dir"
 tar -xzf "${tmp}/${asset}" -C "$install_dir" zignore
 chmod +x "${install_dir}/zignore"

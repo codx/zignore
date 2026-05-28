@@ -89,15 +89,14 @@ fn resolvePicker(ctx: Ctx, initial_query: []const u8, buf: []u8) ?[]const u8 {
 // flag (e.g. `--input=py ` for tv, `--query=py ` for fzf). The trailing space
 // keeps the fragment composable when slotted into the `sh -c` string.
 //
-// The accepted character set is `[A-Za-z0-9._-]` — the full character set of
-// every bundled template name (verified by scanning vendor/github/gitignore).
-// Anything else drops the pre-filter rather than risk shell metacharacters
-// escaping the `sh -c` string. Template names never contain shell-unsafe
-// characters, so this loses nothing in practice.
+// The accepted character set is `[A-Za-z0-9./_-]` — the full character set of
+// every bundled template display name (verified by scanning vendor/github/gitignore
+// and the internal template set). Anything else drops the pre-filter rather
+// than risk shell metacharacters escaping the `sh -c` string.
 fn formatQueryFragment(query: []const u8, buf: []u8, picker: []const u8) []const u8 {
     if (query.len == 0) return "";
     for (query) |c| {
-        const ok = std.ascii.isAlphanumeric(c) or c == '.' or c == '_' or c == '-';
+        const ok = std.ascii.isAlphanumeric(c) or c == '.' or c == '_' or c == '-' or c == '/';
         if (!ok) return "";
     }
     const flag: []const u8 = if (std.mem.eql(u8, picker, "tv")) "--input=" else "--query=";
@@ -138,15 +137,24 @@ fn runExternal(ctx: Ctx, cmd: []const u8, suggestions: []const []const u8) !Resu
         var seen: std.StringHashMap(void) = .init(ctx.gpa);
         defer seen.deinit();
         for (suggestions) |name| {
-            const gop = try seen.getOrPut(name);
+            const canonical = if (templates.find(name)) |t| templates.displayName(t) else name;
+            const gop = try seen.getOrPut(canonical);
             if (gop.found_existing) continue;
-            try w.print("{s}\n", .{name});
+            try w.print("{s}\n", .{canonical});
         }
-        var it = templates.iter();
-        while (it.next()) |t| {
-            const gop = try seen.getOrPut(t.name);
-            if (gop.found_existing) continue;
-            try w.print("{s}\n", .{t.name});
+        // Curated (namespace-less) templates next, then the community set. Both
+        // tv and fzf preserve input order, so the curated names surface above
+        // the much larger github/ list instead of being interleaved
+        // alphabetically.
+        for ([_]bool{ true, false }) |curated_pass| {
+            var it = templates.iter();
+            while (it.next()) |t| {
+                if ((t.namespace.len == 0) != curated_pass) continue;
+                const display = templates.displayName(t);
+                const gop = try seen.getOrPut(display);
+                if (gop.found_existing) continue;
+                try w.print("{s}\n", .{display});
+            }
         }
         try w.flush();
         child.stdin.?.close(ctx.io);

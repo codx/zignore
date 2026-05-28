@@ -6,8 +6,6 @@ const pattern = @import("../pattern.zig");
 const groups = @import("../groups.zig");
 const detect = @import("../detect.zig");
 
-const core_gitignore = @embedFile("../internal_templates/check_staged_core.gitignore");
-
 // `zignore check-staged`: pre-commit hook. Refuses commits whose staged
 // additions are matched by a very restricted set of high-confidence templates:
 // an internal core list (node_modules, __pycache__, etc.) and anything
@@ -34,38 +32,30 @@ pub fn run(ctx: Ctx) !u8 {
     while (sit.next()) |p| try paths.append(ctx.gpa, p);
     if (paths.items.len == 0) return 0;
 
-    var selected_templates: std.StringHashMap(templates.Template) = .init(ctx.gpa);
-    defer selected_templates.deinit();
-
-    // 1. Core conservative patterns
-    try selected_templates.put("Core", .{ .name = "Core", .content = core_gitignore });
-
-    // 2. Autodetected templates based on project content
-    if (detect.run(ctx.io, ctx.gpa, repo_root)) |suggestions| {
-        defer ctx.gpa.free(suggestions);
-        for (suggestions) |s| {
-            if (templates.find(s.template)) |t| try selected_templates.put(t.name, t);
-        }
-    } else |_| {}
-
     var compiled: std.ArrayList(pattern.PatternList) = .empty;
     defer {
         for (compiled.items) |*pl| pl.deinit();
         compiled.deinit(ctx.gpa);
     }
 
+    // 1. Core conservative patterns (not a user-facing template; see
+    // templates.check_staged_core).
+    try appendCompiled(ctx.gpa, &compiled, "Core", templates.check_staged_core);
+
+    // 2. Autodetected templates based on project content
+    var selected_templates: std.StringHashMap(templates.Template) = .init(ctx.gpa);
+    defer selected_templates.deinit();
+    if (detect.run(ctx.io, ctx.gpa, repo_root)) |suggestions| {
+        defer ctx.gpa.free(suggestions);
+        for (suggestions) |s| {
+            if (templates.find(s.template)) |t| try selected_templates.put(templates.displayName(t), t);
+        }
+    } else |_| {}
+
     var tit = selected_templates.iterator();
     while (tit.next()) |entry| {
         const t = entry.value_ptr.*;
-        var pl = try pattern.compile(ctx.gpa, t.name, t.content);
-        // Skip overlay templates (e.g. JENKINS_HOME) — they declare
-        // "ignore everything, then re-include a few paths" and would
-        // false-positive against any normal repo.
-        if (isOverlay(&pl)) {
-            pl.deinit();
-            continue;
-        }
-        try compiled.append(ctx.gpa, pl);
+        try appendCompiled(ctx.gpa, &compiled, templates.displayName(t), t.content);
     }
 
     const max_display = 3;
@@ -99,6 +89,23 @@ pub fn run(ctx: Ctx) !u8 {
             "  Bypass once:    git commit --no-verify\n",
     );
     return 1;
+}
+
+// Compile `content` under `source_name` and append it to `out`, skipping
+// overlay templates (e.g. JENKINS_HOME) — they declare "ignore everything,
+// then re-include a few paths" and would false-positive against any normal repo.
+fn appendCompiled(
+    gpa: std.mem.Allocator,
+    out: *std.ArrayList(pattern.PatternList),
+    source_name: []const u8,
+    content: []const u8,
+) !void {
+    var pl = try pattern.compile(gpa, source_name, content);
+    if (isOverlay(&pl)) {
+        pl.deinit();
+        return;
+    }
+    try out.append(gpa, pl);
 }
 
 // An "overlay" template is one whose top-level intent is "ignore

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.next/
+.nuxt/
+.output/
+.cache/
+.env
+.env.*
+*.log
