@@ -25,7 +25,7 @@
           inherit version;
           src = ./.;
 
-          nativeBuildInputs = [ pkgs.zig pkgs.makeWrapper ];
+          nativeBuildInputs = [ pkgs.zig pkgs.makeWrapper pkgs.installShellFiles ];
 
           # The zig setup-hook auto-wires configure/build/install. We point
           # the global cache at the sandbox so it can't reach the network.
@@ -35,8 +35,17 @@
             mkdir -p "$ZIG_GLOBAL_CACHE_DIR"
           '';
 
-          # Runtime dep: zignore shells out to `git`.
+          # Install shell completions into the standard search paths so they're
+          # picked up automatically. Generated from the binary itself — the same
+          # scripts it embeds — so they can't drift from `zignore completion`.
+          # Run before wrapProgram, while $out/bin/zignore is still the raw exe.
           postInstall = ''
+            installShellCompletion --cmd zignore \
+              --bash <("$out/bin/zignore" completion bash) \
+              --zsh  <("$out/bin/zignore" completion zsh) \
+              --fish <("$out/bin/zignore" completion fish)
+
+            # Runtime dep: zignore shells out to `git`.
             wrapProgram "$out/bin/zignore" \
               --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.git ]}
           '';
