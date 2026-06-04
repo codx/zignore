@@ -32,6 +32,17 @@ TARGETS := \
 VERSION           := $(shell sed -nE 's/.*\.version = "([^"]+)".*/\1/p' build.zig.zon)
 SOURCE_DATE_EPOCH := $(shell git log -1 --pretty=%ct 2>/dev/null || date +%s)
 
+release: ## Bump build.zig.zon, commit, and tag a release (usage: make release VERSION=0.2.3)
+	@test -n "$(VERSION)" || { echo "usage: make release VERSION=0.2.3" >&2; exit 1; }
+	@git diff --quiet && git diff --cached --quiet || { echo "working tree is dirty; commit or stash first" >&2; exit 1; }
+	@git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null && { echo "tag v$(VERSION) already exists" >&2; exit 1; } || true
+	@sed -i.bak -E 's/(\.version = ")[^"]+(")/\1$(VERSION)\2/' build.zig.zon && rm -f build.zig.zon.bak
+	@git commit -qm "Release v$(VERSION)" build.zig.zon
+	@git tag "v$(VERSION)"
+	@echo "tagged v$(VERSION) — push to trigger the release workflow:"
+	@echo "    git push origin $$(git rev-parse --abbrev-ref HEAD) && git push origin v$(VERSION)"
+.PHONY: release
+
 release-build: ## Cross-compile + package the full release matrix into release-build/
 	@rm -rf release-build && mkdir -p release-build
 	@$(foreach t,$(TARGETS), \
