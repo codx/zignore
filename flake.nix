@@ -53,6 +53,7 @@
           meta = {
             description = "Quickly update gitignore";
             mainProgram = "zignore";
+            license = pkgs.lib.licenses.isc;
             platforms = pkgs.lib.platforms.unix;
           };
         };
