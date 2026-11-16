@@ -77,11 +77,11 @@ PREFIX   := $(shell git rev-parse --show-prefix)
 SUBTREES += github/gitignore
 
 $(addprefix vendor/,$(SUBTREES)): vendor/%:
-	cd $(TOPLEVEL) && git subtree add --prefix=$(PREFIX)$@ https://github.com/$* main -m "Add https://github.com/$*" --squash
+	cd $(TOPLEVEL) && git subtree add --prefix=$(PREFIX)$@ https://github.com/$* main -m "build(vendor): add https://github.com/$*" --squash
 
 update-subtrees: $(addprefix vendor/,$(SUBTREES)) ## Pull latest changes from git subtrees
 	$(foreach repo,$(SUBTREES),\
-		cd $(TOPLEVEL) && git subtree pull --prefix=$(PREFIX)vendor/$(repo) https://github.com/$(repo) main -m "Update https://github.com/$(repo)" --squash || :; )
+		cd $(TOPLEVEL) && git subtree pull --prefix=$(PREFIX)vendor/$(repo) https://github.com/$(repo) main -m "build(vendor): update https://github.com/$(repo)" --squash || :; )
 .PHONY: update-subtrees
 
 # Shell color variables
