@@ -1,0 +1,29 @@
+name: Dependabot auto-merge
+
+# Squash-merges open Dependabot PRs once they are at least cooldown-days old
+# and all their checks have passed.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: dependabot-automerge
+  cancel-in-progress: false
+
+jobs:
+  automerge:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: read
+      statuses: read
+      actions: read
+    steps:
+      - uses: run-action/automerge@c27e29b3f58bfdbbc9240fbf69d8ca1c56174f29 # v1.3.0
+        with:
+          cooldown-days: 3
