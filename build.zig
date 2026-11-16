@@ -2,11 +2,11 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSmall });
+    const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .small });
     // Strip debug info from release binaries — debug sections can embed
     // absolute build paths and toolchain identifiers that break reproducible
     // builds across CI runners. Release workflow passes `-Dstrip=true`.
-    const strip = b.option(bool, "strip", "Strip debug symbols") orelse (optimize != .Debug);
+    const strip = b.option(bool, "strip", "Strip debug symbols") orelse (optimize != .debug);
 
     const templates_src = generateTemplatesModule(b);
 
@@ -42,7 +42,7 @@ pub fn build(b: *std.Build) void {
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| run_cmd.addArgs(args);
+    run_cmd.addPassthruArgs();
     const run_step = b.step("run", "Run zignore");
     run_step.dependOn(&run_cmd.step);
 
@@ -195,7 +195,9 @@ fn collectVendor(
     else
         b.fmt("vendor/github/gitignore/{s}", .{subdir});
 
-    var dir = std.Io.Dir.openDir(.cwd(), io, b.pathFromRoot(path), .{ .iterate = true }) catch |err|
+    b.dependOnDirectoryContents(b.path(path));
+
+    var dir = b.root.openDir(io, path, .{ .iterate = true }) catch |err|
         std.debug.panic("open {s}: {s}", .{ path, @errorName(err) });
     defer dir.close(io);
 
@@ -207,7 +209,7 @@ fn collectVendor(
     while (it.next(io) catch |err| std.debug.panic("iter {s}: {s}", .{ path, @errorName(err) })) |entry| {
         if (entry.kind != .file) continue;
         if (!std.mem.endsWith(u8, entry.name, ".gitignore")) continue;
-        const fname = b.dupe(entry.name);
+        const fname = b.graph.dupeString(entry.name);
         const stem = fname[0 .. fname.len - ".gitignore".len];
         if (stem.len == 0) continue; // skip a literal ".gitignore"
 
@@ -236,7 +238,9 @@ fn collectInternal(
     const io = b.graph.io;
     const path = "src/internal_templates";
 
-    var dir = std.Io.Dir.openDir(.cwd(), io, b.pathFromRoot(path), .{ .iterate = true }) catch |err|
+    b.dependOnDirectoryContents(b.path(path));
+
+    var dir = b.root.openDir(io, path, .{ .iterate = true }) catch |err|
         std.debug.panic("open {s}: {s}", .{ path, @errorName(err) });
     defer dir.close(io);
 
@@ -245,7 +249,7 @@ fn collectInternal(
         if (entry.kind != .file) continue;
         if (!std.mem.endsWith(u8, entry.name, ".gitignore")) continue;
 
-        const fname = b.dupe(entry.name);
+        const fname = b.graph.dupeString(entry.name);
         var stem = fname[0 .. fname.len - ".gitignore".len];
 
         // The conservative check-staged baseline is embedded separately (see

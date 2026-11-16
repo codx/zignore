@@ -7,7 +7,7 @@
 # against the published SHA256SUMS from the matching GitHub Release. A match
 # proves the published artifact was built from the same source you can read.
 #
-# Requires: zig 0.16.x, git, curl, GNU tar (gtar on macOS via `brew install
+# Requires: zig 0.17.x, git, curl, GNU tar (gtar on macOS via `brew install
 # gnu-tar`), and either sha256sum (linux) or shasum (macOS).
 
 set -eu -o pipefail
