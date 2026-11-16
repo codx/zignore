@@ -131,7 +131,7 @@ const Match = enum { strict, lenient };
 fn findHeaderPass(text: []const u8, name: []const u8, mode: Match) ?HeaderLoc {
     var line_start: usize = 0;
     while (line_start < text.len) {
-        const nl = std.mem.indexOfScalarPos(u8, text, line_start, '\n') orelse text.len;
+        const nl = std.mem.findScalarPos(u8, text, line_start, '\n') orelse text.len;
         const line = text[line_start..nl];
         if (lineMatchesName(line, name, mode)) {
             const after = if (nl < text.len) nl + 1 else nl;
@@ -223,7 +223,7 @@ fn isNameChar(c: u8) bool {
 fn sectionEndKnown(text: []const u8, after_header: usize) usize {
     var p = after_header;
     while (p < text.len) {
-        const nl = std.mem.indexOfScalarPos(u8, text, p, '\n') orelse text.len;
+        const nl = std.mem.findScalarPos(u8, text, p, '\n') orelse text.len;
         const line = text[p..nl];
         if (isAnyBundledHeader(line)) return p;
         p = if (nl < text.len) nl + 1 else nl;
@@ -274,7 +274,7 @@ fn containsLine(hay: []const u8, needle_in: []const u8) bool {
     const needle = std.mem.trim(u8, needle_in, " \t");
     var line_start: usize = 0;
     while (line_start <= hay.len) {
-        const nl = std.mem.indexOfScalarPos(u8, hay, line_start, '\n') orelse hay.len;
+        const nl = std.mem.findScalarPos(u8, hay, line_start, '\n') orelse hay.len;
         const line = stripCR(hay[line_start..nl]);
         const trimmed = std.mem.trim(u8, line, " \t");
         if (std.mem.eql(u8, trimmed, needle)) return true;
@@ -340,7 +340,7 @@ fn detectShadow(
             // Dir-prefix shadow: candidate is a dir pattern that would
             // ignore a parent of the negation's path. E.g., `dist/` shadows
             // `!dist/keep`.
-            if (std.mem.indexOfScalar(u8, neg_path, '/')) |slash| {
+            if (std.mem.findScalar(u8, neg_path, '/')) |slash| {
                 const parent = neg_path[0..slash];
                 if (pattern.matchOne(p, parent, true)) {
                     return .{ .new_pattern = t, .negation_line = n.line };
@@ -365,7 +365,7 @@ fn stripCR(s: []const u8) []const u8 {
 // --- file I/O ---
 
 pub fn readFile(io: std.Io, allocator: std.mem.Allocator, repo_root: []const u8, rel_path: []const u8) ![]u8 {
-    const path = try std.fs.path.join(allocator, &.{ repo_root, rel_path });
+    const path = try std.Io.Dir.path.join(allocator, &.{ repo_root, rel_path });
     defer allocator.free(path);
     return std.Io.Dir.readFileAlloc(.cwd(), io, path, allocator, .unlimited) catch |err| switch (err) {
         error.FileNotFound => try allocator.dupe(u8, ""),
@@ -374,9 +374,9 @@ pub fn readFile(io: std.Io, allocator: std.mem.Allocator, repo_root: []const u8,
 }
 
 pub fn writeFileAtomic(io: std.Io, allocator: std.mem.Allocator, repo_root: []const u8, rel_path: []const u8, content: []const u8) !void {
-    const path = try std.fs.path.join(allocator, &.{ repo_root, rel_path });
+    const path = try std.Io.Dir.path.join(allocator, &.{ repo_root, rel_path });
     defer allocator.free(path);
-    const tmp_path = try std.fmt.allocPrint(allocator, "{s}.zignore.tmp", .{path});
+    const tmp_path = try allocator.print("{s}.zignore.tmp", .{path});
     defer allocator.free(tmp_path);
     {
         var f = try std.Io.Dir.createFile(.cwd(), io, tmp_path, .{});

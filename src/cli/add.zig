@@ -157,9 +157,9 @@ pub fn run(ctx: Ctx) !u8 {
             try ctx.stderr.writeAll("zignore add --diff: up to date — no changes\n");
             return 0;
         }
-        const a_label = try std.fmt.allocPrint(ctx.gpa, "a/{s}", .{rel_path});
+        const a_label = try ctx.gpa.print("a/{s}", .{rel_path});
         defer ctx.gpa.free(a_label);
-        const b_label = try std.fmt.allocPrint(ctx.gpa, "b/{s}", .{rel_path});
+        const b_label = try ctx.gpa.print("b/{s}", .{rel_path});
         defer ctx.gpa.free(b_label);
         try diff.write(ctx.gpa, ctx.stdout, a_label, b_label, original, content, 3, pickDiffStyle(ctx));
         return 0;

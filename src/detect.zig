@@ -235,7 +235,7 @@ fn shouldSkip(name: []const u8) bool {
 // Returns a slice borrowed from one of the ext_rules entries so map keys
 // have a stable lifetime. nil if the file has no extension we care about.
 fn extOf(name: []const u8) ?[]const u8 {
-    const dot = std.mem.lastIndexOfScalar(u8, name, '.') orelse return null;
+    const dot = std.mem.findScalarLast(u8, name, '.') orelse return null;
     if (dot == 0) return null;
     const ext = name[dot..];
     for (ext_rules) |r| {

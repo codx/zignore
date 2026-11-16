@@ -188,7 +188,7 @@ fn globRec(p: []const u8, pi_in: usize, s: []const u8, si_in: usize) bool {
                 si += 1;
             },
             '[' => {
-                const close = std.mem.indexOfScalarPos(u8, p, pi + 1, ']') orelse return false;
+                const close = std.mem.findScalarPos(u8, p, pi + 1, ']') orelse return false;
                 if (sc == '/') return false;
                 if (!classMatch(p[pi + 1 .. close], sc)) return false;
                 pi = close + 1;

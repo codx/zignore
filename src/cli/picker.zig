@@ -74,12 +74,12 @@ fn resolvePicker(ctx: Ctx, initial_query: []const u8, buf: []u8) ?[]const u8 {
     const exe = std.process.executablePathAlloc(ctx.io, ctx.gpa) catch return null;
     defer ctx.gpa.free(exe);
 
-    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     var query_buf: [128]u8 = undefined;
     inline for (candidates) |c| {
         if (findInPath(ctx.io, ctx.environ, c.name, &path_buf) != null) {
             const q = formatQueryFragment(initial_query, &query_buf, c.name);
-            return std.fmt.bufPrint(buf, c.fmt, .{ .exe = exe, .query = q }) catch return null;
+            return std.mem.print(buf, c.fmt, .{ .exe = exe, .query = q }) catch return null;
         }
     }
     return null;
@@ -100,7 +100,7 @@ fn formatQueryFragment(query: []const u8, buf: []u8, picker: []const u8) []const
         if (!ok) return "";
     }
     const flag: []const u8 = if (std.mem.eql(u8, picker, "tv")) "--input=" else "--query=";
-    return std.fmt.bufPrint(buf, "{s}{s} ", .{ flag, query }) catch "";
+    return std.mem.print(buf, "{s}{s} ", .{ flag, query }) catch "";
 }
 
 fn findInPath(io: std.Io, environ: std.process.Environ, name: []const u8, buf: []u8) ?[]const u8 {
@@ -108,7 +108,7 @@ fn findInPath(io: std.Io, environ: std.process.Environ, name: []const u8, buf: [
     var it = std.mem.splitScalar(u8, path_var, ':');
     while (it.next()) |dir| {
         if (dir.len == 0) continue;
-        const full = std.fmt.bufPrint(buf, "{s}/{s}", .{ dir, name }) catch continue;
+        const full = std.mem.print(buf, "{s}/{s}", .{ dir, name }) catch continue;
         const f = std.Io.Dir.openFile(.cwd(), io, full, .{ .path_only = true }) catch continue;
         f.close(io);
         return full;
