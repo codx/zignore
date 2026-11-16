@@ -118,3 +118,21 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
       - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
       - run: nix flake check --no-build --print-build-logs
+
+  gate:
+    name: Required CI checks
+    needs: [test, cross-compile, repro-check, drift-check, nix-check]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: Verify all required jobs succeeded
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          failed=$(jq -r 'to_entries[] | select(.value.result != "success") | "\(.key) did not succeed (\(.value.result))"' <<<"$NEEDS")
+          if [ -n "$failed" ]; then
+            while IFS= read -r line; do echo "::error::$line"; done <<<"$failed"
+            exit 1
+          fi
+          echo "All required jobs passed"
